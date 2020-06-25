@@ -3,7 +3,10 @@
 #if SETUP_TABLE
     #include <admin_setup-bans-table>
     #include <admin_setup-admins-table>
+    #include <admin_setup-atm>
 #endif
+
+#include <admin_atm-create>
 
 #include <admin_account>
 #include <admin_ban>

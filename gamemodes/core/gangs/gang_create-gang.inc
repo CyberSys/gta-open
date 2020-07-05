@@ -87,6 +87,8 @@ hook OnMySQLConnected()
         g_id = ?";
     stmt_UpdateGANGOWNER = MySQL_PrepareStatement(MySQL_GetHandle(), updateOwner);
 
+    Gang_Load();
+
     return 1;
 }
 
@@ -95,56 +97,51 @@ Gang_Load() {
     inline const OnGANGLoad() {
         new
             g_id,
-            g_name,
-            g_owner,
+            g_name[64],
+            g_owner[64],
             g_kills,
             g_deaths;
 
         MySQL_BindResultInt(stmt_LoadGANG, 0, g_id);
-        MySQL_BindResult(stmt_LoadGANG, 1, g_name);
-        MySQL_BindResult(stmt_LoadGANG, 2, g_owner);
+        MySQL_BindResult(stmt_LoadGANG, 1, g_name, sizeof(g_name));
+        MySQL_BindResult(stmt_LoadGANG, 2, g_owner, sizeof(g_owner));
         MySQL_BindResultInt(stmt_LoadGANG, 3, g_kills);
         MySQL_BindResultInt(stmt_LoadGANG, 4, g_deaths);
 
         while(MySQL_Statement_FetchRow(stmt_LoadGANG)) {
-            GangLoad(g_id, g_name, g_owner, g_kills, g_deaths);
+            GangID[g_id] = g_id;
+            strcat(GangName[g_id], g_name);
+            strcat(GangOwner[g_id], g_owner);
+            GangKills[g_id] = g_kills;
+            GangDeaths[g_id] = g_deaths;
+            Iter_Add(Gang_Iter, g_id);
         }
     }
 
     MySQL_ExecuteThreaded_Inline(stmt_LoadGANG, using inline OnGANGLoad);
 }
 
-stock Gang_InsertToDatabase(GangID)
+stock Gang_InsertToDatabase(GangsID)
 {
-	MySQL_BindInt(stmt_InsertGANG, 0, GangID);
-    MySQL_Bind(stmt_InsertGANG, 1, GangName[GangID]);
-    MySQL_Bind(stmt_InsertGANG, 2, GangOwner[GangID]);
+	MySQL_BindInt(stmt_InsertGANG, 0, GangsID);
+    MySQL_Bind(stmt_InsertGANG, 1, GangName[GangsID]);
+    MySQL_Bind(stmt_InsertGANG, 2, GangOwner[GangsID]);
     MySQL_ExecuteThreaded(stmt_InsertGANG);
 }
 
-stock Gang_UpdateKD(GangID)
+stock Gang_UpdateKD(GangsID)
 {
-    MySQL_BindInt(stmt_UpdateGANG, 0, GangKills[GangID]);
-    MySQL_BindInt(stmt_UpdateGANG, 1, GangDeaths[GangID]);
-    MySQL_BindInt(stmt_UpdateGANG, 2, GangID);
+    MySQL_BindInt(stmt_UpdateGANG, 0, GangKills[GangsID]);
+    MySQL_BindInt(stmt_UpdateGANG, 1, GangDeaths[GangsID]);
+    MySQL_BindInt(stmt_UpdateGANG, 2, GangsID);
     MySQL_ExecuteThreaded(stmt_UpdateGANG);
 }
 
-stock Gang_UpdateOwner(GangID)
+stock Gang_UpdateOwner(GangsID)
 {
-    MySQL_Bind(stmt_UpdateGANGOWNER, 0, GangOwner[GangID])
-    MySQL_BindInt(stmt_UpdateGANGOWNER, 1, GangID);
+    MySQL_Bind(stmt_UpdateGANGOWNER, 0, GangOwner[GangsID])
+    MySQL_BindInt(stmt_UpdateGANGOWNER, 1, GangsID);
     MySQL_ExecuteThreaded(stmt_UpdateGANGOWNER);
-}
-
-GangLoad(GID, GName, GOwner, GKills, GDeaths)
-{
-    GangID[GID] = GID;
-    GangName[GID] = GName;
-    GangOwner[GID] = GOwner;
-    GangKills[GID] = GKills;
-    GangDeaths[GID] = GDeaths;
-    Iter_Add(Gang_Iter, GID);
 }
 
 GangCreate(playerid, const gNAME[], bool:save = false)
@@ -157,8 +154,8 @@ GangCreate(playerid, const gNAME[], bool:save = false)
 	}
     GetPlayerName(playerid, gOwnerName, sizeof(gOwnerName));
     GangID[gID] = gID;
-    GangName[gID] = gNAME;
-    GangOwner[gID] = gOwnerName;
+    strcat(GangName[gID], gNAME);
+    strcat(GangOwner[gID], gOwnerName);
 
     Player_SetGangID(playerid, gID);
     Player_SetGangPos(playerid, 10);
@@ -233,6 +230,15 @@ stock Player_SetGangID(playerid, level)
     mysql_tquery(MySQL_GetHandle(), string);
 }
 
+CMD:gangs(playerid, params[])
+{
+    for(new i = 0; i < MAX_GANGS; i++)
+    {
+        SendServerMsgF(playerid, "Gang:%s", GangID[i]);
+    }
+    return 1;
+}
+
 ACMD:[5]cgang(playerid, params[])
 {
     new target, namegang[128];
@@ -243,7 +249,7 @@ ACMD:[5]cgang(playerid, params[])
         return SendErrorMsg(playerid, "Player is not connected");
     }
     GangCreate(target, namegang, true);
-    SendMsgAllF(COLOR_MODERATION, "%p (%d) Has been accepted and created the Gang %s", namegang);
+    SendMsgAllF(COLOR_MODERATION, "%p (%d) Has been accepted and created the Gang %s", target, target, namegang);
     return 1;
 }
 
